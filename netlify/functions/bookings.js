@@ -20,7 +20,11 @@
 const TENANT_ID = process.env.TENANT_ID || "0ccd0789-fd2c-48ff-9f4f-4b2bf5af070a";
 const CLIENT_ID = process.env.CLIENT_ID || "71901e39-aa4d-4f67-a78f-707576c15925";
 const CLIENT_SECRET = process.env.CLIENT_SECRET;           // <-- env only, never in code
-const ROOM_EMAIL   = process.env.ROOM_EMAIL   || "Area3_HQ-BoardMeeting@systemrapid.com";
+// Address the room by its directory object ID (GUID), not its SMTP address:
+// room mailbox UPNs can differ from the email and make /users/{smtp} throw
+// ErrorInvalidUser. The GUID is unambiguous.
+const ROOM_EMAIL   = process.env.ROOM_EMAIL   || "8d2de945-c4e3-411f-916f-8a4e3788db0d";
+const ROOM_LABEL   = process.env.ROOM_LABEL   || "Area3_HQ-BoardMeeting@systemrapid.com";
 const SENDER_EMAIL = process.env.SENDER_EMAIL || "bookings@systemrapid.com";
 const ADMIN_EMAIL  = process.env.ADMIN_EMAIL  || "bookings@systemrapid.com";
 const ORG_NAME     = process.env.ORG_NAME     || "FCC–Almabani Joint Venture";
@@ -102,7 +106,7 @@ exports.handler = async (event) => {
     // -------------------- availability --------------------
     if (event.httpMethod === "GET") {
       const q = event.queryStringParameters || {};
-      const room = q.room || ROOM_EMAIL;
+      const room = ROOM_EMAIL; // pilot: single room, always the GUID
       const date = q.date;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date || "")) return json(400, { error: "date required (YYYY-MM-DD)" });
       const evs = await listWindow(room, `${date}T00:00:00`, `${date}T23:59:59`);
@@ -118,7 +122,7 @@ exports.handler = async (event) => {
     if (event.httpMethod === "POST") {
       let b;
       try { b = JSON.parse(event.body || "{}"); } catch { return json(400, { error: "invalid JSON" }); }
-      const room = b.room || ROOM_EMAIL;
+      const room = ROOM_EMAIL; // pilot: single room, always the GUID
       for (const k of ["name", "email", "date", "start", "end"]) {
         if (!b[k]) return json(400, { error: `missing field: ${k}` });
       }
@@ -150,7 +154,7 @@ exports.handler = async (event) => {
           },
           start: { dateTime: startLocal, timeZone: TZ_WINDOWS },
           end:   { dateTime: endLocal,   timeZone: TZ_WINDOWS },
-          location: { displayName: room },
+          location: { displayName: ROOM_LABEL },
           transactionId: ref,
         },
       });
@@ -178,7 +182,7 @@ exports.handler = async (event) => {
         await graph("POST", `/users/${encodeURIComponent(SENDER_EMAIL)}/sendMail`, {
           body: {
             message: {
-              subject: `Room booking confirmed — ${room.split("@")[0]} — ${pretty} (${b.start}–${b.end})`,
+              subject: `Room booking confirmed — ${ROOM_LABEL.split("@")[0]} — ${pretty} (${b.start}–${b.end})`,
               body: { contentType: "HTML", content: confirmationHtml(b, room, ref, pretty) },
               toRecipients: [{ emailAddress: { address: b.email } }],
               ccRecipients: ADMIN_EMAIL && ADMIN_EMAIL !== b.email
