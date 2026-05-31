@@ -1,0 +1,6 @@
+{
+  "name": "sr-room-booking-graph",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Meeting room booking via Microsoft Graph with Exchange-native conflict blocking"
+}
